@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 /// A stream identifier, as described in [Section 5.1.1] of RFC 7540.
 ///
 /// Streams are identified with an unsigned 31-bit integer. Streams
@@ -8,7 +10,7 @@
 /// new stream.
 ///
 /// [Section 5.1.1]: https://tools.ietf.org/html/rfc7540#section-5.1.1
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct StreamId(u32);
 
 #[derive(Debug, Copy, Clone)]

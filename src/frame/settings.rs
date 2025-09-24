@@ -3,6 +3,8 @@ use std::fmt;
 use crate::frame::{util, Error, Frame, FrameSize, Head, Kind, StreamId};
 use crate::tracing;
 use bytes::{BufMut, BytesMut};
+#[cfg(feature = "unstable")]
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 define_enum_with_values! {
@@ -47,6 +49,45 @@ define_enum_with_values! {
     }
 }
 
+impl Serialize for SettingId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(match self {
+            SettingId::HeaderTableSize => "HEADER_TABLE_SIZE",
+            SettingId::EnablePush => "ENABLE_PUSH",
+            SettingId::MaxConcurrentStreams => "MAX_CONCURRENT_STREAMS",
+            SettingId::InitialWindowSize => "INITIAL_WINDOW_SIZE",
+            SettingId::MaxFrameSize => "MAX_FRAME_SIZE",
+            SettingId::MaxHeaderListSize => "MAX_HEADER_LIST_SIZE",
+            SettingId::EnableConnectProtocol => "ENABLE_CONNECT_PROTOCOL",
+            SettingId::NoRfc7540Priorities => "NO_RFC7540_PRIORITIES",
+            _ => return Err(serde::ser::Error::custom("invalid setting id")),
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for SettingId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(match s.as_str() {
+            "HEADER_TABLE_SIZE" => SettingId::HeaderTableSize,
+            "ENABLE_PUSH" => SettingId::EnablePush,
+            "MAX_CONCURRENT_STREAMS" => SettingId::MaxConcurrentStreams,
+            "INITIAL_WINDOW_SIZE" => SettingId::InitialWindowSize,
+            "MAX_FRAME_SIZE" => SettingId::MaxFrameSize,
+            "MAX_HEADER_LIST_SIZE" => SettingId::MaxHeaderListSize,
+            "ENABLE_CONNECT_PROTOCOL" => SettingId::EnableConnectProtocol,
+            "NO_RFC7540_PRIORITIES" => SettingId::NoRfc7540Priorities,
+            _ => return Err(serde::de::Error::custom("invalid setting id")),
+        })
+    }
+}
+
 /// Represents the order of settings in a SETTINGS frame.
 ///
 /// This structure maintains an ordered list of `SettingId` values for use when encoding or decoding
@@ -56,7 +97,7 @@ define_enum_with_values! {
 ///
 /// Typically, a `SettingsOrder` is constructed using the [`SettingsOrderBuilder`] to enforce uniqueness
 /// and protocol-compliant ordering.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SettingsOrder {
     ids: SmallVec<[SettingId; SettingId::DEFAULT_STACK_SIZE]>,
 }
@@ -138,7 +179,7 @@ impl SettingsOrderBuilder {
 /// Any setting with a standard (known) ID will be ignored and not included in this collection.
 /// This allows for safe experimentation and extension without interfering with standard settings.
 #[cfg(feature = "unstable")]
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExperimentalSettings {
     settings: SmallVec<[Setting; SettingId::DEFAULT_STACK_SIZE]>,
 }
@@ -244,7 +285,7 @@ pub struct Settings {
 /// frame.
 ///
 /// Each setting has a value that is a 32 bit unsigned integer (6.5.1.).
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Setting {
     id: SettingId,
     value: u32,
