@@ -4,6 +4,8 @@ use crate::frame::{Error, Frame, Head, Kind};
 use crate::hpack::{self, BytesStr};
 use crate::tracing;
 
+use serde::{Deserialize, Serialize};
+
 use http::header::{self, HeaderName, HeaderValue};
 use http::{uri, HeaderMap, Method, Request, StatusCode, Uri};
 
@@ -96,6 +98,40 @@ define_enum_with_values! {
     }
 }
 
+impl Serialize for PseudoId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(match self {
+            PseudoId::Method => "METHOD",
+            PseudoId::Scheme => "SCHEME",
+            PseudoId::Authority => "AUTHORITY",
+            PseudoId::Path => "PATH",
+            PseudoId::Protocol => "PROTOCOL",
+            PseudoId::Status => "STATUS",
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for PseudoId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(match s.as_str() {
+            "METHOD" => PseudoId::Method,
+            "SCHEME" => PseudoId::Scheme,
+            "AUTHORITY" => PseudoId::Authority,
+            "PATH" => PseudoId::Path,
+            "PROTOCOL" => PseudoId::Protocol,
+            "STATUS" => PseudoId::Status,
+            _ => return Err(serde::de::Error::custom("invalid pseudo-header")),
+        })
+    }
+}
+
 /// Represents the order of HTTP/2 pseudo-header fields in a header block.
 ///
 /// This structure maintains an ordered list of pseudo-header fields (such as `:method`, `:scheme`, etc.)
@@ -105,7 +141,7 @@ define_enum_with_values! {
 ///
 /// Typically, a `PseudoOrder` is constructed using the [`PseudoOrderBuilder`] to enforce uniqueness
 /// and protocol-compliant ordering.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PseudoOrder {
     ids: SmallVec<[PseudoId; PseudoId::DEFAULT_STACK_SIZE]>,
 }
